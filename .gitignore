@@ -1,0 +1,9 @@
+.condaenv/
+.vscode/
+data/
+models/
+params/
+secrets/
+extras/
+global_data/
+*.zip
