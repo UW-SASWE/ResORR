@@ -1,0 +1,3 @@
+[submodule "models/RAT"]
+	path = models/RAT
+	url = git@github.com:UW-SASWE/RAT.git
