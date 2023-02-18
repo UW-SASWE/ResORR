@@ -2,7 +2,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - python >=3.6
+  - python
   - pandas
   - numpy
   - xarray
@@ -20,3 +20,7 @@ dependencies:
   - requests
   - shapely
   - cartopy
+  # river-regulation dependencies
+  - dataretrieval
+  - jupyterlab
+  - matplotlib=3.5.2
