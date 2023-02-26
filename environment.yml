@@ -1,12 +1,11 @@
 channels:
-  - defaults
   - conda-forge
+  - defaults
 dependencies:
   - python
   - pandas
   - numpy
   - xarray
-  - geopandas >= 0.10
   - rasterio
   - yaml
   - pyyaml
@@ -18,10 +17,12 @@ dependencies:
   - rioxarray
   - dask
   - requests
-  - shapely
-  - cartopy
   - tqdm
   # river-regulation dependencies
   - dataretrieval
   - jupyterlab
-  - matplotlib=3.5.2
+  - matplotlib<=3.5.2
+  - geopandas >= 0.12
+  - cartopy
+  - pygeos
+  - landlab
