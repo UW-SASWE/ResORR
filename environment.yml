@@ -26,3 +26,6 @@ dependencies:
   - cartopy
   - pygeos
   - landlab
+  - ipywidgets
+  pip:
+    - geonetworkx
