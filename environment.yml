@@ -27,5 +27,5 @@ dependencies:
   - pygeos
   - landlab
   - ipywidgets
-  pip:
-    - geonetworkx
+pip:
+  - geonetworkx
