@@ -27,5 +27,8 @@ dependencies:
   - pygeos
   - landlab
   - ipywidgets
+  - pystac
+  - S3FS
+  - Boto3
 pip:
   - geonetworkx
