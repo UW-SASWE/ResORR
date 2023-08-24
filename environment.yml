@@ -21,14 +21,17 @@ dependencies:
   # river-regulation dependencies
   - dataretrieval
   - jupyterlab
-  - matplotlib<=3.5.2
   - geopandas >= 0.12
   - cartopy
   - pygeos
   - landlab
   - ipywidgets
-  - pystac
-  - S3FS
+  # precip-analysis dependencies
   - Boto3
+  # visualization dependencies
+  - matplotlib<=3.5.2
+  - geoviews
+  - holoviews
+  - bokeh
 pip:
   - geonetworkx
