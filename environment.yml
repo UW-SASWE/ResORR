@@ -33,5 +33,5 @@ dependencies:
   - geoviews
   - holoviews
   - bokeh
-pip:
-  - geonetworkx
+  - pip:
+    - geonetworkx
