@@ -1,6 +1,5 @@
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - python
   - pandas
@@ -21,7 +20,7 @@ dependencies:
   # river-regulation dependencies
   - dataretrieval
   - jupyterlab
-  - geopandas >= 0.12
+  - geopandas
   - cartopy
   - pygeos
   - landlab
@@ -29,9 +28,12 @@ dependencies:
   # precip-analysis dependencies
   - Boto3
   # visualization dependencies
-  - matplotlib<=3.5.2
+  - matplotlib
   - geoviews
   - holoviews
   - bokeh
+  - hvplot
+  - jupyter_bokeh
+  - param
   - pip:
     - geonetworkx
