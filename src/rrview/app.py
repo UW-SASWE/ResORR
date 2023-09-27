@@ -1,6 +1,7 @@
 import argparse
 import xarray as xr
 import numpy as np
+import pandas as pd
 import holoviews as hv
 import hvplot.xarray
 import panel as pn
@@ -12,7 +13,7 @@ import networkx as nx
 from holoviews import opts
 import warnings
 
-from bokeh.models.formatters import NumeralTickFormatter
+from bokeh.models.formatters import NumeralTickFormatter, DatetimeTickFormatter
 from bokeh.models import HoverTool
 
 warnings.filterwarnings('ignore')
@@ -50,10 +51,11 @@ def plot_node(node):
     default_opts = dict(
         height=400, width=800, 
         yformatter=NumeralTickFormatter(format='0.00a'), 
+        xformatter=DatetimeTickFormatter(days=['%b-%d-%Y'], months=['%b-%Y'], years=['%Y']),
         ylabel='Flow (m3/d)', xlabel='Date',
     )
     default_curve_opts = dict(
-        interpolation='steps-pre'
+        interpolation='steps-mid'
     )
     
     hover_cols = ['inflow', 'outflow', 'theoretical_natural_runoff', 'storage_change', 'obs_inflow']
@@ -70,34 +72,64 @@ def plot_node(node):
         .hvplot(kind="line", x='time', y='inflow', label='Inflow', hover_cols=hover_cols) \
         .opts(**default_opts) \
         .opts(**default_curve_opts) \
-        .opts(tools=[hover])
+        .opts(color='#0d75f8', tools=[hover])
     
     outflow_plot = ds.sel(node=node) \
         .hvplot(kind="line", x='time', y='outflow', label='Outflow') \
         .opts(**default_opts) \
         .opts(**default_curve_opts) \
-        .opts(muted=True)
+        .opts(color='#db5856', muted=True, tools=[])
     
     tnr_plot = ds.sel(node=node) \
         .hvplot(kind="line", x='time', y='theoretical_natural_runoff', label='Theoretical Natural Runoff (TNR)') \
         .opts(**default_opts) \
         .opts(**default_curve_opts) \
-        .opts(color='green', line_dash='2 2')
+        .opts(color='#51b73b', alpha=0.8, line_width=5, tools=[])
     
     obs_inflow_plot = ds.sel(node=node) \
         .hvplot(kind="line", x="time", y='obs_inflow', label='Observed Inflow') \
         .opts(**default_opts) \
         .opts(**default_curve_opts) \
-        .opts(color='k', line_dash='2 2', alpha=0.8)
+        .opts(color='#070d0d', alpha=0.8, tools=[])
+    
+    nr_plot = ds.sel(node=node) \
+        .hvplot(kind="line", x="time", y='natural_runoff', label='Natural Runoff') \
+        .opts(**default_opts) \
+        .opts(**default_curve_opts) \
+        .opts(color='#a2cffe', tools=[])
+
+    # rr_plot = ds.sel(node=node) \
+    #     .hvplot(kind="line", x="time", y='regulated_runoff', label='Regulated Runoff') \
+    #     .opts(**default_opts) \
+    #     .opts(**default_curve_opts) \
+    #     .opts(color='k', alpha=0.8, tools=[])
     
     ds['zeros'] = 0
-    dels_plot = ds.sel(node=node) \
-        .hvplot(kind="area", x='time', y='storage_change', y2='zeros', label='Storage Change') \
+    # ds['time'] = ds['time'].astype(np.float64)
+    # print(ds['time'])
+    # print(ds['storage_change'])
+    # dels_plot = ds.sel(node=node) \
+    #     .hvplot(kind="area", x='time', y='storage_change', y2='zeros', label='Storage Change') \
+    #     .opts(**default_opts) \
+    #     .opts(fill_alpha=0.2, color='gray', muted_fill_alpha=0.05, muted=True, muted_line_alpha=0.3)
+    # ds['storage_change_sign'] = ds['storage_change']>=ds['zeros']
+    # dels_pos_plot = ds['storage_change'].sel(node=node) \
+    #     .hvplot(kind="bar", x='time', y='storage_change', label='Storage Change')
+    dels_pos = xr.where(ds['storage_change'].sel(node=node)>=0, 1, 0)
+    dels_pos_plot = ds.sel(node=node).where(dels_pos, 0) \
+        .hvplot(kind="area", x="time", y='storage_change', label='Storage Change') \
         .opts(**default_opts) \
-        .opts(fill_alpha=0.2, color='gray', muted_fill_alpha=0.05, muted=True, muted_line_alpha=0.3)
-    
+        .opts(color='blue', fill_color='blue', alpha=0.4, muted=True, muted_alpha=0.15, tools=[])
+    dels_neg_plot = ds.sel(node=node).where((dels_pos-1)*-1, 0) \
+        .hvplot(kind="area", x="time", y='storage_change', label='Storage Change') \
+        .opts(**default_opts) \
+        .opts(color='red', fill_color='red', alpha=0.4, muted=True, muted_alpha=0.15, tools=[])
+    dels_plot = ds.sel(node=node) \
+        .hvplot(kind="line", x="time", y='storage_change', label='Storage Change') \
+        .opts(**default_opts) \
+        .opts(color='green', alpha=0.4, muted=True, muted_alpha=0.15, interpolation='steps-mid', tools=[])
 
-    return inflow_plot * outflow_plot * tnr_plot * obs_inflow_plot * dels_plot
+    return inflow_plot * outflow_plot * tnr_plot * obs_inflow_plot * nr_plot * dels_pos_plot * dels_neg_plot * dels_plot 
 
 
 class RegulationViewer(param.Parameterized):
