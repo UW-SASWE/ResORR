@@ -60,6 +60,7 @@ def plot_node(node):
     
     hover_cols = ['inflow', 'outflow', 'theoretical_natural_runoff', 'storage_change', 'obs_inflow']
     tooltips = [
+        ('Date', '@time{%F}'),
         ('Inflow', '@inflow{0.00a}'),
         ('Observed Inflow', '@obs_inflow{0.00a}'),
         # ('Outflow', '@outflow{0.00a}'),
@@ -97,6 +98,12 @@ def plot_node(node):
         .opts(**default_opts) \
         .opts(**default_curve_opts) \
         .opts(color='#a2cffe', tools=[])
+    
+    obs_outflow = ds.sel(node=node) \
+        .hvplot(kind="line", x="time", y='obs_outflow', label='Observed Outflow') \
+        .opts(**default_opts) \
+        .opts(**default_curve_opts) \
+        .opts(color='#fa4224', alpha=0.8, tools=[])
 
     # rr_plot = ds.sel(node=node) \
     #     .hvplot(kind="line", x="time", y='regulated_runoff', label='Regulated Runoff') \
@@ -129,8 +136,27 @@ def plot_node(node):
         .opts(**default_opts) \
         .opts(color='green', alpha=0.4, muted=True, muted_alpha=0.15, interpolation='steps-mid', tools=[])
 
-    return inflow_plot * outflow_plot * tnr_plot * obs_inflow_plot * nr_plot * dels_pos_plot * dels_neg_plot * dels_plot 
+    return inflow_plot * outflow_plot * tnr_plot * obs_inflow_plot * nr_plot * dels_pos_plot * dels_neg_plot * dels_plot * obs_outflow
 
+def plot_graph(G):
+    x = []
+    y = []
+    node_indices = []
+    node_labels = []
+
+    for node in G.nodes:
+        x.append(float(G.nodes[node]['x']))
+        y.append(float(G.nodes[node]['y']))
+        node_indices.append(int(node))
+        node_labels.append(G.nodes[node]['name'])
+
+    source = [n[0] for n in G.edges]
+    target = [n[1] for n in G.edges]
+
+    nodes = hv.Nodes((x, y, node_indices, node_labels), vdims='Type')
+    simple_graph = hv.Graph(((source, target), nodes)).opts(height=300, width=300, xlabel='lon (°)', ylabel='lat (°)', arrowhead_length=0.02, directed=True, aspect='equal')
+    
+    return simple_graph
 
 class RegulationViewer(param.Parameterized):
     current_node = param.Selector(objects=nodes, precedence=1)
@@ -139,6 +165,10 @@ class RegulationViewer(param.Parameterized):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        self.network_hv = plot_graph(G)
+        self.network_selection = hv.streams.Selection1D(source=self.network_hv.nodes)
+        # self.network_selection.add_subscriber(self._sync_selected_node_network_selection)
 
         self.current_hv = hv.Curve([])
         self.upstream_hv = hv.Curve([])
@@ -150,6 +180,15 @@ class RegulationViewer(param.Parameterized):
         self._plot_current_node()
         self._plot_upstream_node()
         self._plot_downstream_node()
+
+    # @param.depends('network_selection.index', watch=True)
+    # def _sync_selected_node_network_selection(self, index):
+    #     print('selection', index)
+    #     self.current_node = index
+
+    @param.depends('current_node', watch=True)
+    def _sync_selected_node_current_node(self):
+        self.network_selection.event(index=[self.current_node])
 
     @param.depends('current_node', watch=True)
     def _update_downstream_node(self):
@@ -181,6 +220,12 @@ class RegulationViewer(param.Parameterized):
             self.downstream_hv = plot_node(self.downstream_node)
         else:
             self.downstream_hv = hv.Curve([])
+
+    @param.depends('network_selection.index', watch=True)
+    def _style_network(self):
+        return self.network_hv.opts(
+                title='Reservoir Network'
+            )
 
     def _style_current_node(self):
         return self.current_hv.opts(title=f'Current Node: {self.current_node} - {G.nodes[self.current_node]["name"].replace("_", " ")}')
@@ -221,7 +266,7 @@ class RegulationViewer(param.Parameterized):
     def view(self):
         return pn.Row(
             pn.Column(
-                self._info_plot, self.params_pane
+                self.network_hv, self._info_plot, self.params_pane
             ),
             pn.Column(
                 self._style_upstream_node,
@@ -234,7 +279,7 @@ def setup_dashboard(rv):
     global template
 
     template.sidebar.append(
-        pn.Column(rv._info_plot, rv.params_pane)
+        pn.Column(rv.network_hv, rv._info_plot, rv.params_pane)
     )
     template.main.append(
         pn.Column(
