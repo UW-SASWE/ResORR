@@ -2,6 +2,7 @@ channels:
   - conda-forge
 dependencies:
   - python
+  - pip
   - pandas
   - numpy
   - xarray
@@ -22,7 +23,6 @@ dependencies:
   - jupyterlab
   - geopandas
   - cartopy
-  - pygeos
   - landlab
   - ipywidgets
   # precip-analysis dependencies
@@ -32,8 +32,11 @@ dependencies:
   - geoviews
   - holoviews
   - bokeh
-  - hvplot
   - jupyter_bokeh
+  - hvplot
+  - panel
   - param
+  # development
+  - conda-build
   - pip:
     - geonetworkx
