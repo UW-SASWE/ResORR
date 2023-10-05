@@ -11,9 +11,6 @@ from .reservoir import Reservoir
 class ReservoirNetwork(nx.DiGraph):
     def __init__(self, network, start_time, *args, **kwargs):
         super().__init__(network, *args, **kwargs)
-        # self.data = xr.open_dataset(data) if isinstance(data, str) \
-        #     else data if isinstance(data, xr.Dataset) \
-        #     else ValueError("Must provide either path of data file or as xr.Dataset")
         self.data = xr.Dataset(
             coords={
                 'node': list(self.nodes),
@@ -93,6 +90,9 @@ class ReservoirNetwork(nx.DiGraph):
 
         if algorithm == 'simple_travel_time':
             self._alg_simple_travel_time(forcings, dt)
+
+        if algorithm == 'simple_obs_outflow_upstream':
+            self._alg_simple_obs_outflow_upstream(forcings, dt)
 
     def _alg_simple(self, forcings, dt):
         for node in list(nx.topological_sort(self)):
@@ -223,3 +223,40 @@ class ReservoirNetwork(nx.DiGraph):
             self.data['storage'].loc[dict(node=node, time=self.time)] = res_data['storage']
             self.data['regulated_runoff'].loc[dict(node=node, time=self.time)] = regulated_runoff
             self.data['theoretical_natural_runoff'].loc[dict(node=node, time=self.time)] = theoretical_natural_runoff
+    
+    def _alg_simple_obs_outflow_upstream(self, forcings, dt):
+        for node in list(nx.topological_sort(self)):
+            storage_change = float(forcings['storage_change'].sel(node=node, time=self.time))
+            theoretical_natural_runoff = float(forcings['theoretical_natural_runoff'].sel(node=node, time=self.time))
+
+            self.data['theoretical_natural_runoff'].loc[dict(node=node, time=self.time)] = theoretical_natural_runoff
+
+            upstream_dams = list(self.predecessors(node))
+            natural_runoff = theoretical_natural_runoff
+            regulated_runoff = 0.0
+            if len(upstream_dams) > 0:
+                regulated_runoff = sum([float(self.data['outflow'].sel(node=n, time=self.time)) for n in upstream_dams])
+                natural_runoff -= sum([float(self.data['theoretical_natural_runoff'].sel(node=n, time=self.time)) for n in upstream_dams])
+
+                inflow = max([0, float(natural_runoff + regulated_runoff)])
+                outflow = max([0, inflow - storage_change])
+                regulation = theoretical_natural_runoff - inflow
+            else:
+                outflow = float(self.data['obs_outflow'].sel(node=node, time=self.time))
+                if np.isnan(outflow):
+                    # try to calculate using observed inflow and observed storage change
+                    obs_inflow = float(forcings['obs_inflow'].sel(node=node, time=self.time))
+                    if np.isnan(obs_inflow):
+                        # if observed inflow is also nan, use theoretical natural runoff
+                        outflow = max([0, theoretical_natural_runoff - storage_change])
+                    else:
+                        outflow = max([0, obs_inflow - storage_change])
+                inflow = outflow + storage_change
+                regulation = theoretical_natural_runoff - inflow
+
+            self.data['inflow'].loc[dict(node=node, time=self.time)] = inflow
+            self.data['outflow'].loc[dict(node=node, time=self.time)] = outflow
+            self.data['regulation'].loc[dict(node=node, time=self.time)] = regulation
+            self.data['natural_runoff'].loc[dict(node=node, time=self.time)] = natural_runoff
+            self.data['regulated_runoff'].loc[dict(node=node, time=self.time)] = regulated_runoff
+            self.data['storage_change'].loc[dict(node=node, time=self.time)] = storage_change
