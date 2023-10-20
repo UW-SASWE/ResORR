@@ -44,14 +44,21 @@ class ReservoirNetwork(nx.DiGraph):
         else:
             raise ValueError(f"Time {time} already exists in data.")
 
-    def update(self, forcings, dt=1, algorithm='simple', reservoir_algorithm='outlet'):
+    def update(self, forcings, dt=1, algorithm='wb', reservoir_algorithm='outlet'):
         """Update the reservoir network for one time step.
 
         Args:
             dt (int, optional): time step in days. Defaults to 1 day.
-            algorithm (str, optional): Defaults to 'simple'.
+            algorithm (str, optional): Defaults to 'wb'.
                 - hydraulic - outflow from reservoir is simulated to estimate storage change. 
-                - simple - requires storage change and unregulated inflow of previous node.
+                - wb - water balance: required forcings: `storage change`, `theoretical_natural_runoff`.
+                - wb_obs_outflow - water balance using observed outflow: required forcings: `storage_change`, `theoretical_natural_runoff`, `obs_outflow`.
+                - wb_travel_time - water balance with travel time: required forcings: `storage_change`, `unregulated_inflow`. This requires `travel_time` attribute at each edge of the network.
+                - wb_obs_outflow_upstream - water balance using observed outflow only at the most upstream dam: required forcings: `storage_change`, `theoretical_natural_runoff`, `obs_outflow`.
+                - wb_obs_inflow_upstream - water balance using observed inflow only at the most upstream dam: required forcings: `storage_change`, `theoretical_natural_runoff`, `obs_inflow`.
+            reservoir_algorithm (str, optional): Defaults to 'outlet'.
+                - outlet - outflow from reservoir is calculated using outlet discharge equation.
+                - 
         """
 
         if self.FIRST_RUN:
@@ -82,19 +89,22 @@ class ReservoirNetwork(nx.DiGraph):
         if algorithm == 'hydraulic_travel_time':
             self._alg_hydraulic_travel_time(forcings, dt)
 
-        if algorithm == 'simple':
-            self._alg_simple(forcings, dt)
+        if algorithm == 'wb':
+            self._alg_wb(forcings, dt)
         
-        if algorithm == 'simple_obs_outflow':
-            self._alg_simple_obs_outflow(forcings, dt)
+        if algorithm == 'wb_obs_outflow':
+            self._alg_wb_obs_outflow(forcings, dt)
 
-        if algorithm == 'simple_travel_time':
-            self._alg_simple_travel_time(forcings, dt)
+        if algorithm == 'wb_travel_time':
+            self._alg_wb_travel_time(forcings, dt)
 
-        if algorithm == 'simple_obs_outflow_upstream':
-            self._alg_simple_obs_outflow_upstream(forcings, dt)
+        if algorithm == 'wb_obs_outflow_upstream':
+            self._alg_wb_obs_outflow_upstream(forcings, dt)
 
-    def _alg_simple(self, forcings, dt):
+        if algorithm == 'wb_obs_inflow_upstream':
+            self._alg_wb_obs_inflow_upstream(forcings, dt)
+
+    def _alg_wb(self, forcings, dt):
         for node in list(nx.topological_sort(self)):
             storage_change = float(forcings['storage_change'].sel(node=node, time=self.time))
             theoretical_natural_runoff = float(forcings['theoretical_natural_runoff'].sel(node=node, time=self.time))
@@ -119,7 +129,7 @@ class ReservoirNetwork(nx.DiGraph):
             self.data['regulated_runoff'].loc[dict(node=node, time=self.time)] = regulated_runoff
             self.data['storage_change'].loc[dict(node=node, time=self.time)] = storage_change
     
-    def _alg_simple_obs_outflow(self, forcings, dt):
+    def _alg_wb_obs_outflow(self, forcings, dt):
         for node in list(nx.topological_sort(self)):
             storage_change = float(forcings['storage_change'].sel(node=node, time=self.time))
             theoretical_natural_runoff = float(forcings['theoretical_natural_runoff'].sel(node=node, time=self.time))
@@ -144,7 +154,7 @@ class ReservoirNetwork(nx.DiGraph):
             self.data['regulated_runoff'].loc[dict(node=node, time=self.time)] = regulated_runoff
             self.data['storage_change'].loc[dict(node=node, time=self.time)] = storage_change
 
-    def _alg_simple_travel_time(self, forcings, dt):
+    def _alg_wb_travel_time(self, forcings, dt):
         for node in list(nx.topological_sort(self)):
             storage_change = float(forcings['storage_change'].sel(node=node, time=self.time))
             unregulated_inflow = float(forcings['unregulated_inflow'].sel(node=node, time=self.time))
@@ -163,7 +173,7 @@ class ReservoirNetwork(nx.DiGraph):
             self.data['regulated_inflow'].loc[dict(node=node, time=self.time)] = regulated_inflow
             self.data['outflow'].loc[dict(node=node, time=self.time)] = outflow
 
-    def _alg_hydraulic(self, forcings, dt, reservoir_algorithm='outlet'):
+    def _alg_hydraulic(self, forcings, dt, reservoir_algorithm='linear_reservoir'):
         for node in list(nx.topological_sort(self)):
             # get reservoir object
             res = self.network[node]
@@ -224,7 +234,7 @@ class ReservoirNetwork(nx.DiGraph):
             self.data['regulated_runoff'].loc[dict(node=node, time=self.time)] = regulated_runoff
             self.data['theoretical_natural_runoff'].loc[dict(node=node, time=self.time)] = theoretical_natural_runoff
     
-    def _alg_simple_obs_outflow_upstream(self, forcings, dt):
+    def _alg_wb_obs_outflow_upstream(self, forcings, dt):
         for node in list(nx.topological_sort(self)):
             storage_change = float(forcings['storage_change'].sel(node=node, time=self.time))
             theoretical_natural_runoff = float(forcings['theoretical_natural_runoff'].sel(node=node, time=self.time))
@@ -252,6 +262,36 @@ class ReservoirNetwork(nx.DiGraph):
                     else:
                         outflow = max([0, obs_inflow - storage_change])
                 inflow = outflow + storage_change
+                regulation = theoretical_natural_runoff - inflow
+
+            self.data['inflow'].loc[dict(node=node, time=self.time)] = inflow
+            self.data['outflow'].loc[dict(node=node, time=self.time)] = outflow
+            self.data['regulation'].loc[dict(node=node, time=self.time)] = regulation
+            self.data['natural_runoff'].loc[dict(node=node, time=self.time)] = natural_runoff
+            self.data['regulated_runoff'].loc[dict(node=node, time=self.time)] = regulated_runoff
+            self.data['storage_change'].loc[dict(node=node, time=self.time)] = storage_change
+
+    def _alg_wb_obs_inflow_upstream(self, forcings, dt):
+        for node in list(nx.topological_sort(self)):
+            storage_change = float(forcings['storage_change'].sel(node=node, time=self.time))
+            theoretical_natural_runoff = float(forcings['theoretical_natural_runoff'].sel(node=node, time=self.time))
+
+            self.data['theoretical_natural_runoff'].loc[dict(node=node, time=self.time)] = theoretical_natural_runoff
+
+            upstream_dams = list(self.predecessors(node))
+            natural_runoff = theoretical_natural_runoff
+            regulated_runoff = 0.0
+            if len(upstream_dams) > 0:
+                regulated_runoff = sum([float(self.data['outflow'].sel(node=n, time=self.time)) for n in upstream_dams])
+                natural_runoff -= sum([float(self.data['theoretical_natural_runoff'].sel(node=n, time=self.time)) for n in upstream_dams])
+
+                inflow = max([0, float(natural_runoff + regulated_runoff)])
+                outflow = max([0, inflow - storage_change])
+                regulation = theoretical_natural_runoff - inflow
+            else:
+                obs_inflow = float(self.data['obs_inflow'].sel(node=node, time=self.time))
+                outflow = max([0, obs_inflow - storage_change])
+                inflow = max([0, outflow + storage_change])
                 regulation = theoretical_natural_runoff - inflow
 
             self.data['inflow'].loc[dict(node=node, time=self.time)] = inflow
