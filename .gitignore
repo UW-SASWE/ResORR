@@ -10,3 +10,5 @@ global_data/
 *.zip
 *.ipynb_checkpoints/
 results/
+*.pyc
+*.nc

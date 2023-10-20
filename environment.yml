@@ -25,6 +25,7 @@ dependencies:
   - cartopy
   - landlab
   - ipywidgets
+  - openpyxl
   # precip-analysis dependencies
   - Boto3
   # visualization dependencies
@@ -36,6 +37,7 @@ dependencies:
   - hvplot
   - panel
   - param
+  - selenium
   # development
   - conda-build
   - pip:
