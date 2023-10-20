@@ -31,7 +31,7 @@ class Reservoir:
 
         self.FIRST_RUN = 1
 
-    def update(self, inflow, algorithm='outlet', dt=1):
+    def update(self, inflow, algorithm='linear_reservoir', dt=1):
         """update for one time step
 
         Args:
