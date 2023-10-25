@@ -28,6 +28,8 @@ dependencies:
   - openpyxl
   # precip-analysis dependencies
   - Boto3
+  # calibration dependencies
+  - hydrostats
   # visualization dependencies
   - matplotlib
   - geoviews
@@ -38,6 +40,10 @@ dependencies:
   - panel
   - param
   - selenium
+  - altair
+  - vl-convert-python
+  - vegafusion-python-embed>=1.4.0
+  - vegafusion>=1.4.0
   # development
   - conda-build
   - pip:
