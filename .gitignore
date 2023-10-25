@@ -1,5 +1,6 @@
 .env/
 .rrviewenv/
+.calenv/
 .vscode/
 data*/
 models/
@@ -12,3 +13,9 @@ global_data/
 results/
 *.pyc
 *.nc
+george-calibration/calib_results*/
+regulation-experiments/regulation-results-stats/*.csv
+regulation-experiments/charts/
+george-calibration/cumberland-upstream-subbasins/
+george-calibration/calib_history/*
+*rat-indus/
