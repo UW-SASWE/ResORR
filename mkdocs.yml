@@ -1,0 +1,18 @@
+site_name: ResORR
+site_description: Reservoir Operations driven River Regulation
+site_author: Pritam Das @ SASWE, University of Washington
+repo_url: https://github.com/UW-SASWE/ResORR
+theme:
+  name: readthedocs
+
+nav:
+  - Home: index.md
+  - How to run ResORR:
+    - Network Generation: methods/01-Network-Generation-networkx.ipynb
+    - Data Preparation: methods/02-Regulation-data-prep.ipynb
+    - Run ResORR model: methods/04-Regulation.ipynb
+
+plugins:
+  - mkdocs-jupyter:
+      include: ["*.ipynb"]
+      execute: false
