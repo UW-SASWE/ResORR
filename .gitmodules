@@ -1,9 +1,0 @@
-[submodule "models/RAT"]
-	path = models/RAT
-	url = git@github.com:UW-SASWE/RAT.git
-[submodule "rrview"]
-	path = rrview
-	url = git@github.com:pritamd47/rrview.git
-[submodule "tools/rrview"]
-	path = tools/rrview
-	url = git@github.com:pritamd47/rrview.git
