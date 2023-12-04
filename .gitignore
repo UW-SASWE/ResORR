@@ -1,6 +1,7 @@
 .env/
 .rrviewenv/
 .calenv/
+.extenv/
 .vscode/
 data*/
 models/

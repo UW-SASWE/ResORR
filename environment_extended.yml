@@ -1,0 +1,26 @@
+# this environment has additional packages like jupyterlab, plotting libraries, etc
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - pip
+  - pandas
+  - numpy
+  - xarray
+  - rasterio
+  - rioxarray
+  - netcdf4
+  - dask
+  - geopandas
+  - cartopy
+  - pytest
+  - conda-build
+  - jupyterlab
+  - holoviews
+  - geoviews
+  - hvplot
+  - bokeh
+  - jupyter_bokeh
+  - cartopy
+  - pip:
+    - geonetworkx
