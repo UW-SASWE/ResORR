@@ -18,7 +18,7 @@ def generate_network(cumberland_save_dir):
     flow_dir_fn = 'tests/data/cumberland/flow-directions.tif'
     stations_fn = 'tests/data/cumberland/cumberland-dams.csv'
 
-    from resorr.generate_network import generate_network
+    from resorr.data_prep import generate_network
 
     G = generate_network(flow_dir_fn, stations_fn, cumberland_save_dir)
 
