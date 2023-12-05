@@ -1,3 +1,4 @@
+# this environment has additional packages like jupyterlab, plotting libraries, etc
 channels:
   - conda-forge
 dependencies:
@@ -14,5 +15,12 @@ dependencies:
   - cartopy
   - pytest
   - conda-build
+  - jupyterlab
+  - holoviews
+  - geoviews
+  - hvplot
+  - bokeh
+  - jupyter_bokeh
+  - hydrostats
   - pip:
     - geonetworkx

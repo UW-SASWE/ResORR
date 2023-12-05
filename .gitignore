@@ -3,6 +3,7 @@
 .extenv/
 .rrviewenv/
 .calenv/
+.extenv/
 .vscode/
 data*/
 models/
@@ -24,3 +25,4 @@ george-calibration/calib_history/*
 regulation-experiments-calibrated-vic/
 regulation-experiments-uncalibrated-vic/
 notebooks/extras/
+.DS_Store
