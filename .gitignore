@@ -5,6 +5,7 @@
 .calenv/
 .extenv/
 .vscode/
+.docsenv/
 data*/
 models/
 params/
