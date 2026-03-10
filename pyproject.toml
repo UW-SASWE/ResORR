@@ -1,0 +1,41 @@
+[project]
+name = "resorr"
+version = "0.1.0"
+description = "Reservoir Operations-driven River Regulation"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    {name = "Pritam Das", email = "pritam.das@iitb.ac.in"}
+]
+maintainers = [
+    {name = "Pritam Das", email = "pritam.das@iitb.ac.in"}
+]
+license-files = [
+    "LICENSE"
+]
+dependencies = [
+    "pandas",
+    "numpy",
+    "xarray",
+    "rasterio",
+    "rioxarray",
+    "netcdf4",
+    "dask",
+    "geopandas",
+    "cartopy",
+    "pytest",
+]
+
+[project.optional-dependencies]
+jupyter = [
+    "jupyterlab",
+    "holoviews",
+    "geoviews",
+    "hvplot",
+    "bokeh",
+    "jupyter_bokeh",
+    "hydrostats"
+]
+
+[project.urls]
+Homepage = "https://github.com/UW-SASWE/ResORR"
