@@ -6,6 +6,7 @@ import rioxarray as rxr
 import numpy as np
 import networkx as nx
 import geonetworkx as gnx
+from pyproj.crs import CRS
 
 
 def generate_network(
@@ -13,8 +14,13 @@ def generate_network(
         stations_fn, 
         save_dir=None, 
         dist_proj=None, 
-        elevation_fn=None
-    ) -> (gpd.GeoDataFrame, gpd.GeoDataFrame): 
+        elevation_fn=None,
+        lon_col="lon",
+        lat_col="lat",
+        station_file_crs="epsg:4326",
+        id_col="name",
+        save_fmts = ["shp", "gpkg"]
+    ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]: 
     """generate reservoir network using flow direction file and reservoir locations.
 
     Args:
@@ -46,18 +52,48 @@ def generate_network(
         assert elevation_fn.exists()
 
     fdr = rxr.open_rasterio(flow_dir_fn, masked=True)
-    band = fdr.sel(band=1)
+    band_crs = CRS.from_wkt(fdr.rio.crs.wkt)
+    band = fdr.sel(band=1).astype(np.float16)
 
-    band_vicfmt = band
+    # determine representation of direction (1..8: VIC; 1...128: uint)
+    representation_kind = 'uint' if np.sum(band>8)>0 else 'VIC' if np.max(band) == 8 else None
+    if representation_kind is None:
+        raise Exception("Couldn't determine how directions are represented in flow-direction file. Unique values: ", ", ".join(list(np.unique(band))))
+
+    if representation_kind == 'uint':
+        # change the representation of flow directions to the standard used in VIC.
+        mapping = {64: 1, 128: 2, 1: 3, 2: 4, 4: 5, 8: 6, 16: 7, 32: 8}
+        # 1. Extract and sort the keys
+        old_values = np.array(list(mapping.keys()))
+        new_values = np.array(list(mapping.values()))
+        
+        sort_idx = np.argsort(old_values)
+        old_values_sorted = old_values[sort_idx]
+        new_values_sorted = new_values[sort_idx]
+
+        indices = xr.zeros_like(band, dtype=np.uint)
+        indices.data = np.searchsorted(old_values_sorted, band, side='left')
+        valid_indices = xr.where(indices < len(old_values_sorted), indices, 0)
+        actual_match = (old_values_sorted[valid_indices] == band)
+        
+        reclassified = xr.where(actual_match, new_values_sorted[valid_indices], np.nan)
+        band = reclassified
 
     reservoirs = gpd.read_file(stations_fn)
-    reservoirs['geometry'] = gpd.points_from_xy(reservoirs['lon'], reservoirs['lat'])
-    reservoirs.set_crs('epsg:4326', inplace=True)
+    reservoirs['geometry'] = gpd.points_from_xy(reservoirs[lon_col], reservoirs[lat_col])
+    reservoirs = gpd.GeoDataFrame(reservoirs, geometry=reservoirs['geometry'])
+    reservoirs.set_crs(station_file_crs, inplace=True)
+    
+    print("Stations file CRS: ", reservoirs.crs)
+    print("Stations file CRS: ", type(reservoirs.crs))
+    reservoirs_crs = reservoirs.crs
+    if reservoirs_crs != band_crs:
+        band = band.rio.to_crs(reservoirs_crs)
 
-    reservoir_location_raster = xr.full_like(band_vicfmt, np.nan)
+    reservoir_location_raster = xr.full_like(band, np.nan)
     for resid, row in reservoirs.iterrows():
-        reslat = float(row.lat)
-        reslon = float(row.lon)
+        reslat = float(row[lat_col])
+        reslon = float(row[lon_col])
 
         rast_lat = reservoir_location_raster.indexes['y'].get_indexer([reslat], method="nearest")[0]
         rast_lon = reservoir_location_raster.indexes['x'].get_indexer([reslon], method="nearest")[0]
@@ -82,22 +118,22 @@ def generate_network(
     for node in G.nodes:
         resdata = reservoirs[reservoirs.index==node]
         
-        x = float(resdata['lon'].values[0])
-        y = float(resdata['lat'].values[0])
+        x = float(resdata[lon_col].values[0])
+        y = float(resdata[lat_col].values[0])
 
-        idxx = band_vicfmt.indexes['x'].get_indexer([x], method="nearest")[0]
-        idxy = band_vicfmt.indexes['y'].get_indexer([y], method="nearest")[0]
+        idxx = band.indexes['x'].get_indexer([x], method="nearest")[0]
+        idxy = band.indexes['y'].get_indexer([y], method="nearest")[0]
         
         # travel downstream until another node, np.nan or out-of-bounds is found, or if travelling in a loop
 
         visited = [(idxx, idxy)]
-        current_pix = band_vicfmt.isel(x=idxx, y=idxy)
+        current_pix = band.isel(x=idxx, y=idxy)
 
         attrs_n = {
             node: {
                 'x': reservoirs['geometry'][node].x,
                 'y': reservoirs['geometry'][node].y,
-                'name': reservoirs['name'][node]
+                'id': reservoirs[id_col][node]
             }
         }
         nx.set_node_attributes(G, attrs_n)
@@ -116,7 +152,7 @@ def generate_network(
                 else:
                     visited.append((new_idxx, new_idxy))
 
-                current_pix = band_vicfmt.isel(x=new_idxx, y=new_idxy)
+                current_pix = band.isel(x=new_idxx, y=new_idxy)
                 if np.isnan(current_pix):
                     # NaN value found, exit loop
                     END=True
@@ -142,6 +178,8 @@ def generate_network(
 
     G_gdf = gpd.GeoDataFrame(gnx.graph_edges_to_gdf(G))
     G_gdf_pts = gpd.GeoDataFrame(gnx.graph_nodes_to_gdf(G))
+    G_gdf = G_gdf.set_crs(reservoirs_crs)
+    G_gdf_pts = G_gdf_pts.set_crs(reservoirs_crs)
 
     # add elevation data to nodes
     if elevation_fn:
@@ -151,13 +189,22 @@ def generate_network(
         G_gdf_pts.head()
 
     if save_dir:
+        saved = False
         pts_save_fn = Path(save_dir) / 'rivreg_network_pts.shp'
         edges_save_fn = Path(save_dir) / 'rivreg_network.shp'
+        if "shp" in save_fmts:
+            G_gdf_pts.to_file(pts_save_fn)
+            G_gdf.to_file(edges_save_fn)
+            saved = True
+        if "gpkg" in save_fmts:
+            G_gdf_pts.to_file(pts_save_fn.with_suffix('.gpkg'))
+            G_gdf.to_file(edges_save_fn.with_suffix('.gpkg'))
+            saved = True
         
-        G_gdf_pts.to_file(pts_save_fn)
-        G_gdf.to_file(edges_save_fn)
+        if not saved:
+            raise Warning("File not saved. Has the `save_fmts` argument properly set?")
 
-    return G
+    return G_gdf
 
 # aggregate
 def aggregate(ds, frequency='weekly'):

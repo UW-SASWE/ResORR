@@ -24,6 +24,8 @@ dependencies = [
     "geopandas",
     "cartopy",
     "pytest",
+    "networkx",
+    "geonetworkx"
 ]
 
 [project.optional-dependencies]
